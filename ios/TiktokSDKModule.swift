@@ -17,13 +17,14 @@ public class TiktokSDKModule: Module {
     // Initialize TikTok Business SDK with configuration
     AsyncFunction("initialize") { (configDict: [String: Any]) in
       guard let appId = configDict["appId"] as? String,
-            let tiktokAppId = configDict["tiktokAppId"] as? String else {
-        print("Error: TikTok SDK requires appId and tiktokAppId")
+            let tiktokAppId = configDict["tiktokAppId"] as? String,
+            let accessToken = configDict["accessToken"] as? String else {
+        print("Error: TikTok SDK requires appId, tiktokAppId, and accessToken")
         return false
       }
-      
-      // Create config
-      let config = TikTokConfig.init(appId: appId, tiktokAppId: tiktokAppId)
+
+      // Create config with the correct initializer that includes accessToken
+      let config = TikTokConfig(accessToken: accessToken, appId: appId, tiktokAppId: tiktokAppId)
       
       // Set debug mode if specified
       if let debugMode = configDict["debugMode"] as? Bool, debugMode {

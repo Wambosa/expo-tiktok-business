@@ -5,14 +5,15 @@ export enum TiktokEventName {
   // App lifecycle events
   LAUNCH = "Launch",
   APP_INSTALL = "AppInstall",
-  
+
   // Engagement events
   SEARCH = "Search",
   VIEW_CONTENT = "ViewContent",
   CLICK = "Click",
   ADD_TO_WISHLIST = "AddToWishlist",
   ADD_TO_CART = "AddToCart",
-  
+  COMPLETE_TUTORIAL = "CompleteTutorial",
+
   // Conversion events
   INITIATE_CHECKOUT = "InitiateCheckout",
   ADD_PAYMENT_INFO = "AddPaymentInfo",
@@ -20,7 +21,7 @@ export enum TiktokEventName {
   PLACE_AN_ORDER = "PlaceAnOrder",
   SUBSCRIBE = "Subscribe",
   CONTACT = "Contact",
-  
+
   // Custom event
   CUSTOM = "Custom"
 }

@@ -138,8 +138,12 @@ class TiktokSDK {
       debugMode?: boolean;
       autoTrackAppLifecycle?: boolean;
       autoTrackRouteChanges?: boolean;
+      accessToken?: string;
     } = {}
   ): Promise<boolean> {
+    console.log('[TiktokSDK] initialize() called');
+    console.log('[TiktokSDK] Current _isInitialized state:', this._isInitialized);
+
     // Get platform-specific app ID
     let appId: string;
     if (typeof appIdParam === 'string') {
@@ -147,7 +151,7 @@ class TiktokSDK {
     } else {
       appId = this._getPlatformAppId(appIdParam);
     }
-    
+
     // Get platform-specific TikTok app ID
     let tiktokAppId: string;
     if (typeof tiktokAppIdParam === 'string') {
@@ -155,7 +159,11 @@ class TiktokSDK {
     } else {
       tiktokAppId = this._getPlatformTikTokAppId(tiktokAppIdParam);
     }
-    
+
+    console.log('[TiktokSDK] Resolved appId:', appId);
+    console.log('[TiktokSDK] Resolved tiktokAppId:', tiktokAppId);
+    console.log('[TiktokSDK] Platform:', Platform.OS);
+
     // Create config
     const config: any = {
       appId,
@@ -165,31 +173,45 @@ class TiktokSDK {
       autoTrackRouteChanges: options.autoTrackRouteChanges !== false, // default to true,
     };
 
-    this._config = config;
-    
-    if (config.debugMode) {
-      console.log(`TiktokSDK: Initializing for ${Platform.OS} with appId=${appId}, tiktokAppId=${tiktokAppId}`);
+    // Add access token if provided
+    if (options.accessToken) {
+      config.accessToken = options.accessToken;
+      console.log('[TiktokSDK] Access token provided');
     }
-    
+
+    this._config = config;
+
+    if (config.debugMode) {
+      console.log(`[TiktokSDK] Initializing for ${Platform.OS} with appId=${appId}, tiktokAppId=${tiktokAppId}`);
+    }
+
     // Initialize the native SDK
+    console.log('[TiktokSDK] Getting native module...');
     const module = getNativeModule();
     if (!module) {
-      console.error("TiktokSDK: Native module not available");
+      console.error("[TiktokSDK] Native module not available");
       return false;
     }
-    
+    console.log('[TiktokSDK] Native module obtained successfully');
+
     try {
+      console.log('[TiktokSDK] Calling native module.initialize()...');
       const success = await module.initialize(config) || false;
+      console.log('[TiktokSDK] Native module.initialize() returned:', success);
+
       this._isInitialized = success;
-      
+      console.log('[TiktokSDK] _isInitialized flag set to:', this._isInitialized);
+
       // Set up app state change listener if lifecycle tracking is enabled
       if (success && config.autoTrackAppLifecycle) {
+        console.log('[TiktokSDK] Setting up app state listener');
         this._setupAppStateListener();
       }
-      
+
+      console.log('[TiktokSDK] Initialization complete, returning:', success);
       return success;
     } catch (error) {
-      console.error("TiktokSDK: Error initializing SDK", error);
+      console.error("[TiktokSDK] Error initializing SDK", error);
       return false;
     }
   }
@@ -219,24 +241,34 @@ class TiktokSDK {
    * @param eventParams Event parameters
    */
   async trackEvent(
-    eventName: TiktokEventName | string, 
+    eventName: TiktokEventName | string,
     eventParams: TiktokEventParams = {}
   ): Promise<boolean> {
+    console.log('[TiktokSDK] trackEvent() called with event:', eventName);
+    console.log('[TiktokSDK] Event params:', JSON.stringify(eventParams, null, 2));
+    console.log('[TiktokSDK] Current _isInitialized state:', this._isInitialized);
+
     if (!this._isInitialized) {
-      console.warn("TiktokSDK: SDK not initialized. Call initialize() first.");
+      console.warn("[TiktokSDK] SDK not initialized. Call initialize() first.");
+      console.warn("[TiktokSDK] Event", eventName, "will not be tracked");
       return false;
     }
 
+    console.log('[TiktokSDK] Getting native module for event tracking...');
     const module = getNativeModule();
     if (!module) {
-      console.error("TiktokSDK: Native module not available");
+      console.error("[TiktokSDK] Native module not available");
       return false;
     }
-    
+    console.log('[TiktokSDK] Native module obtained for event tracking');
+
     try {
-      return await module.trackEvent(eventName, eventParams) || false;
+      console.log('[TiktokSDK] Calling native module.trackEvent() for:', eventName);
+      const result = await module.trackEvent(eventName, eventParams) || false;
+      console.log('[TiktokSDK] Native module.trackEvent() returned:', result);
+      return result;
     } catch (error) {
-      console.error("TiktokSDK: Error tracking event", error);
+      console.error("[TiktokSDK] Error tracking event", eventName, error);
       return false;
     }
   }
