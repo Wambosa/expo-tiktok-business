@@ -15,13 +15,12 @@ public class TiktokSDKModule: Module {
     Name("TiktokSDK")
 
     // Initialize TikTok Business SDK with configuration
-    AsyncFunction("initialize") { (configDict: [String: Any], promise: Promise) in
+    AsyncFunction("initialize") { (configDict: [String: Any]) -> Bool in
       guard let appId = configDict["appId"] as? String,
             let tiktokAppId = configDict["tiktokAppId"] as? String,
             let accessToken = configDict["accessToken"] as? String else {
         print("Error: TikTok SDK requires appId, tiktokAppId, and accessToken")
-        promise.resolve(false)
-        return
+        return false
       }
 
       // Create config with the correct initializer that includes accessToken
@@ -45,27 +44,42 @@ public class TiktokSDKModule: Module {
       }
 
       // Initialize the SDK - safely unwrap config
-      if let unwrappedConfig = config {
-        TikTokBusiness.initializeSdk(unwrappedConfig) { success, error in
-          if (!success) {
-            print("TikTok SDK initialization failed: \(error?.localizedDescription ?? "Unknown error")")
-            promise.resolve(false)
-          } else {
-            print("TikTok SDK initialized successfully")
-
-            // Auto-track Launch event if enabled
-            if self.autoTrackAppLifecycle {
-              TikTokBusiness.trackEvent("Launch")
-            }
-
-            self.isInitialized = true
-            promise.resolve(true)
-          }
-        }
-      } else {
+      guard let unwrappedConfig = config else {
         print("Error: TikTok SDK initialization failed - config is nil")
-        promise.resolve(false)
+        return false
       }
+
+      // Use a semaphore to wait for the async callback
+      let semaphore = DispatchSemaphore(value: 0)
+      var initSuccess = false
+
+      TikTokBusiness.initializeSdk(unwrappedConfig) { success, error in
+        if (!success) {
+          print("TikTok SDK initialization failed: \(error?.localizedDescription ?? "Unknown error")")
+        } else {
+          print("TikTok SDK initialized successfully")
+
+          // Auto-track Launch event if enabled
+          if self.autoTrackAppLifecycle {
+            TikTokBusiness.trackEvent("Launch")
+          }
+
+          self.isInitialized = true
+        }
+        initSuccess = success
+        semaphore.signal()
+      }
+
+      // Wait for the callback to complete (with 10 second timeout)
+      let timeout = DispatchTime.now() + .seconds(10)
+      let result = semaphore.wait(timeout: timeout)
+
+      if result == .timedOut {
+        print("TikTok SDK initialization timed out")
+        return false
+      }
+
+      return initSuccess
     }
 
     // Track standard or custom events
