@@ -15,19 +15,25 @@ public class TiktokSDKModule: Module {
     Name("TiktokSDK")
 
     // Initialize TikTok Business SDK with configuration
-    AsyncFunction("initialize") { (configDict: [String: Any]) -> Bool in
+    AsyncFunction("initialize") { (configDict: [String: Any], promise: Promise) in
+      print("[Swift] TiktokSDK initialize called")
+
       guard let appId = configDict["appId"] as? String,
             let tiktokAppId = configDict["tiktokAppId"] as? String,
             let accessToken = configDict["accessToken"] as? String else {
-        print("Error: TikTok SDK requires appId, tiktokAppId, and accessToken")
-        return false
+        print("[Swift] Error: TikTok SDK requires appId, tiktokAppId, and accessToken")
+        promise.reject("MISSING_PARAMS", "Missing required parameters")
+        return
       }
+
+      print("[Swift] Creating TikTok config with appId: \(appId)")
 
       // Create config with the correct initializer that includes accessToken
       let config = TikTokConfig(accessToken: accessToken, appId: appId, tiktokAppId: tiktokAppId)
 
       // Set debug mode if specified
       if let debugMode = configDict["debugMode"] as? Bool, debugMode {
+        print("[Swift] Enabling debug mode")
         // Safely unwrap the optional config before calling methods
         config?.enableDebugMode()
         // Note: Not setting log level as we don't know the correct enum values
@@ -37,49 +43,44 @@ public class TiktokSDKModule: Module {
       // Store auto-tracking preferences
       if let autoTrackAppLifecycle = configDict["autoTrackAppLifecycle"] as? Bool {
         self.autoTrackAppLifecycle = autoTrackAppLifecycle
+        print("[Swift] autoTrackAppLifecycle: \(autoTrackAppLifecycle)")
       }
 
       if let autoTrackRouteChanges = configDict["autoTrackRouteChanges"] as? Bool {
         self.autoTrackRouteChanges = autoTrackRouteChanges
+        print("[Swift] autoTrackRouteChanges: \(autoTrackRouteChanges)")
       }
 
       // Initialize the SDK - safely unwrap config
       guard let unwrappedConfig = config else {
-        print("Error: TikTok SDK initialization failed - config is nil")
-        return false
+        print("[Swift] Error: TikTok SDK initialization failed - config is nil")
+        promise.reject("CONFIG_NIL", "Failed to create config")
+        return
       }
 
-      // Use a semaphore to wait for the async callback
-      let semaphore = DispatchSemaphore(value: 0)
-      var initSuccess = false
+      print("[Swift] Calling TikTokBusiness.initializeSdk...")
 
       TikTokBusiness.initializeSdk(unwrappedConfig) { success, error in
+        print("[Swift] TikTok SDK callback received - success: \(success)")
+
         if (!success) {
-          print("TikTok SDK initialization failed: \(error?.localizedDescription ?? "Unknown error")")
+          let errorMsg = error?.localizedDescription ?? "Unknown error"
+          print("[Swift] TikTok SDK initialization failed: \(errorMsg)")
+          promise.reject("INIT_FAILED", "TikTok SDK initialization failed: \(errorMsg)")
         } else {
-          print("TikTok SDK initialized successfully")
+          print("[Swift] TikTok SDK initialized successfully")
 
           // Auto-track Launch event if enabled
           if self.autoTrackAppLifecycle {
+            print("[Swift] Auto-tracking Launch event")
             TikTokBusiness.trackEvent("Launch")
           }
 
           self.isInitialized = true
+          print("[Swift] Setting isInitialized = true")
+          promise.resolve(true)
         }
-        initSuccess = success
-        semaphore.signal()
       }
-
-      // Wait for the callback to complete (with 10 second timeout)
-      let timeout = DispatchTime.now() + .seconds(10)
-      let result = semaphore.wait(timeout: timeout)
-
-      if result == .timedOut {
-        print("TikTok SDK initialization timed out")
-        return false
-      }
-
-      return initSuccess
     }
 
     // Track standard or custom events
