@@ -15,17 +15,18 @@ public class TiktokSDKModule: Module {
     Name("TiktokSDK")
 
     // Initialize TikTok Business SDK with configuration
-    AsyncFunction("initialize") { (configDict: [String: Any]) in
+    AsyncFunction("initialize") { (configDict: [String: Any], promise: Promise) in
       guard let appId = configDict["appId"] as? String,
             let tiktokAppId = configDict["tiktokAppId"] as? String,
             let accessToken = configDict["accessToken"] as? String else {
         print("Error: TikTok SDK requires appId, tiktokAppId, and accessToken")
-        return false
+        promise.resolve(false)
+        return
       }
 
       // Create config with the correct initializer that includes accessToken
       let config = TikTokConfig(accessToken: accessToken, appId: appId, tiktokAppId: tiktokAppId)
-      
+
       // Set debug mode if specified
       if let debugMode = configDict["debugMode"] as? Bool, debugMode {
         // Safely unwrap the optional config before calling methods
@@ -33,38 +34,38 @@ public class TiktokSDKModule: Module {
         // Note: Not setting log level as we don't know the correct enum values
         // and enableDebugMode() should be sufficient
       }
-      
+
       // Store auto-tracking preferences
       if let autoTrackAppLifecycle = configDict["autoTrackAppLifecycle"] as? Bool {
         self.autoTrackAppLifecycle = autoTrackAppLifecycle
       }
-      
+
       if let autoTrackRouteChanges = configDict["autoTrackRouteChanges"] as? Bool {
         self.autoTrackRouteChanges = autoTrackRouteChanges
       }
-      
+
       // Initialize the SDK - safely unwrap config
       if let unwrappedConfig = config {
         TikTokBusiness.initializeSdk(unwrappedConfig) { success, error in
           if (!success) {
             print("TikTok SDK initialization failed: \(error?.localizedDescription ?? "Unknown error")")
+            promise.resolve(false)
           } else {
             print("TikTok SDK initialized successfully")
-            
+
             // Auto-track Launch event if enabled
             if self.autoTrackAppLifecycle {
               TikTokBusiness.trackEvent("Launch")
             }
-            
+
             self.isInitialized = true
+            promise.resolve(true)
           }
         }
       } else {
         print("Error: TikTok SDK initialization failed - config is nil")
-        return false
+        promise.resolve(false)
       }
-      
-      return true
     }
 
     // Track standard or custom events
